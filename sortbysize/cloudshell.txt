@@ -1,6 +1,0 @@
-gsutil cp "gs://mamecloud-temp/processed/MAME 0.219 Rollback ROMs/MAME (v0.128u3) - ggxxrl.zip" gs://mamecloud-roms-upload
-gsutil cp "gs://mamecloud-temp/processed/MAME 0.219 Rollback ROMs/MAME (v0.128u3) - ggxx.zip" gs://mamecloud-roms-upload
-gsutil cp "gs://mamecloud-temp/processed/MAME 0.219 Rollback ROMs/MAME (v0.128u3) - senko.zip" gs://mamecloud-roms-upload
-
-gsutil -m rsync -r gs://mamecloud-temp gs://mamecloud-roms-upload
-
