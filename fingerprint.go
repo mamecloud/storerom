@@ -3,17 +3,16 @@ package storerom
 import (
 	"crypto/sha1"
 	"encoding/hex"
+	"fmt"
 	"hash/crc32"
 	"io"
 	"os"
-	"fmt"
 )
 
 type Fingerprint struct {
-
-	size  int64;
-	crc string;
-	sha1  string;
+	size int64
+	crc  string
+	sha1 string
 }
 
 // Fingerprint a file in the Mame way

@@ -1,12 +1,12 @@
 package storerom
 
 import (
-	"fmt"
-	"strings"
-	"os"
-	"io"
 	"archive/zip"
+	"fmt"
+	"io"
+	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Extracts all entries in a zip file and returns the paths of the extracted files
@@ -14,6 +14,7 @@ func extractAll(zipfilename string) string {
 
 	tempDir := tempDir()
 
+	fmt.Printf("Unzipping %s\n", zipfilename)
 	zipfile, err := zip.OpenReader(zipfilename)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to open input zipfile: %v\n", err))
@@ -21,6 +22,7 @@ func extractAll(zipfilename string) string {
 	defer zipfile.Close()
 
 	for _, entry := range zipfile.File {
+		fmt.Printf("Extracting: %s\n", entry.Name)
 		extract(tempDir, entry)
 	}
 

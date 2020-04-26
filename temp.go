@@ -2,8 +2,8 @@ package storerom
 
 import (
 	"fmt"
-	"os"
 	"io/ioutil"
+	"os"
 )
 
 // Creates a temporary file
@@ -12,7 +12,7 @@ func tempFile() *os.File {
 	file, err := ioutil.TempFile("", "")
 
 	if err != nil {
-			panic(fmt.Sprintf("Error creating temp file: %v\n", err))
+		panic(fmt.Sprintf("Error creating temp file: %v\n", err))
 	}
 
 	return file
@@ -24,7 +24,7 @@ func tempDir() string {
 	name, err := ioutil.TempDir("", "")
 
 	if err != nil {
-			panic(fmt.Sprintf("Error creating temp dir: %v\n", err))
+		panic(fmt.Sprintf("Error creating temp dir: %v\n", err))
 	}
 
 	return name
@@ -32,13 +32,13 @@ func tempDir() string {
 
 // Lists files in a directory
 func listFiles(folder string) []string {
-        files, err := ioutil.ReadDir(folder)
-        if err != nil {
-                panic(fmt.Sprintf("Error listing unzipped files: %v\n", err))
-        }
-        result := make([]string, 5)
-        for _, file := range files {
-            result = append(result, file.Name())
-        }
-        return result
+	files, err := ioutil.ReadDir(folder)
+	if err != nil {
+		panic(fmt.Sprintf("Error listing unzipped files: %v\n", err))
+	}
+	result := make([]string, 5)
+	for _, file := range files {
+		result = append(result, file.Name())
+	}
+	return result
 }
