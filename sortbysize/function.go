@@ -1,15 +1,12 @@
-package storerom
+package sortbysize
 
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
 	"strconv"
-	"context"
-	"fmt"
 	"cloud.google.com/go/pubsub"
 )
 
@@ -128,5 +125,5 @@ func publish(bucket, object string, topicID string) {
 	if err != nil {
 		panic(fmt.Sprintf("Error publishing %s: %v\n", object, err))
 	}
-	fmt.Printf("Published message for %s; msg ID: %v\n", object, id)
+	fmt.Printf("Published message for %s to %s; msg ID: %v\n", object, topicID, id)
 }
