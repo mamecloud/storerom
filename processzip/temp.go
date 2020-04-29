@@ -1,4 +1,4 @@
-package storerom
+package processzip
 
 import (
 	"fmt"
@@ -28,17 +28,4 @@ func tempDir() string {
 	}
 
 	return name
-}
-
-// Lists files in a directory
-func listFiles(folder string) []string {
-	files, err := ioutil.ReadDir(folder)
-	if err != nil {
-		panic(fmt.Sprintf("Error listing unzipped files: %v\n", err))
-	}
-	result := make([]string, 5)
-	for _, file := range files {
-		result = append(result, file.Name())
-	}
-	return result
 }
