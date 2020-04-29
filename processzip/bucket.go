@@ -1,4 +1,4 @@
-package storerom
+package processzip
 
 import (
 	"cloud.google.com/go/storage"
@@ -43,11 +43,13 @@ func exists(bucket string, objectpath string, client *storage.Client) bool {
 	for {
 		_, err := it.Next()
 		if err == iterator.Done {
+			fmt.Printf("Nothing found for prefix %s", objectpath)
 			return false
 		}
 		if err != nil {
 			panic(fmt.Sprintf("Error checking if bukcket object exists: %v\n", err))
 		}
+		fmt.Printf("Found something for prefix %s", objectpath)
 		return true
 	}
 }
@@ -195,6 +197,7 @@ func assembleChunks(chunks []string) string {
 	for index, tempFile := range chunks {
 
 		// Open the chunk
+		defer os.Remove(tempFile)
 		input, err := os.Open(tempFile)
 		if err != nil {
 			panic(fmt.Sprintf("Failed to open chunk %d: %v\n", index, err))
