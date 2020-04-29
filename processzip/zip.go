@@ -1,4 +1,4 @@
-package storerom
+package processzip
 
 import (
 	"archive/zip"
