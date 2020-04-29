@@ -1,10 +1,10 @@
-module github.com/mamecloud/storerom
+module github.com/mamecloud/storerom/processzip
 
 go 1.11
 
 require (
 	cloud.google.com/go v0.56.0 // indirect
-	cloud.google.com/go/pubsub v1.3.1
+	cloud.google.com/go/pubsub v1.3.1 // indirect
 	cloud.google.com/go/storage v1.6.0
 	github.com/golang/protobuf v1.4.0 // indirect
 	golang.org/x/sys v0.0.0-20200413165638-669c56c373c4 // indirect
