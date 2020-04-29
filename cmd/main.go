@@ -8,7 +8,7 @@ import (
 func main() {
 	fmt.Println("Ohai!")
 
-	//storerom.Testing()
+	//processzip.Testing()
 
 	data := []byte("The quick brown fox jumped over the lazy dug.")
 
