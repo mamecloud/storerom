@@ -9,7 +9,7 @@ import (
 	"strconv"
 )
 
-var projectID := os.Getenv("PROJECT_ID")
+var projectID string = os.Getenv("PROJECT_ID")
 var sourceBucket string = fmt.Sprintf("%s-roms-upload", projectID)
 var targetBucket string = fmt.Sprintf("%s-roms", projectID)
 

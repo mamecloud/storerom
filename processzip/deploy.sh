@@ -13,6 +13,7 @@ gcloud functions deploy ProcessZipSmall \
     --runtime go111 \
     --memory 256MB \
     --trigger-topic rom-upload-small \
+    --set-env-vars PROJECT_ID=$project_id \
     --allow-unauthenticated \
     --region europe-west2 &
 
@@ -22,6 +23,7 @@ gcloud functions deploy ProcessZipMedium \
     --runtime go111 \
     --memory 512MB \
     --trigger-topic rom-upload-medium \
+    --set-env-vars PROJECT_ID=$project_id \
     --allow-unauthenticated \
     --region europe-west2 &
 
@@ -31,6 +33,7 @@ gcloud functions deploy ProcessZipLarge \
     --runtime go111 \
     --memory 1024MB \
     --trigger-topic rom-upload-large \
+    --set-env-vars PROJECT_ID=$project_id \
     --allow-unauthenticated \
     --region europe-west2 &
 
@@ -40,6 +43,7 @@ gcloud functions deploy ProcessZipXLarge \
     --runtime go111 \
     --memory 2048MB \
     --trigger-topic rom-upload-xlarge \
+    --set-env-vars PROJECT_ID=$project_id \
     --allow-unauthenticated \
     --region europe-west2 &
 
