@@ -7,9 +7,11 @@ require (
 	cloud.google.com/go/pubsub v1.3.1 // indirect
 	cloud.google.com/go/storage v1.6.0
 	github.com/golang/protobuf v1.4.0 // indirect
-	golang.org/x/sys v0.0.0-20200413165638-669c56c373c4 // indirect
-	golang.org/x/tools v0.0.0-20200417140056-c07e33ef3290 // indirect
-	google.golang.org/api v0.21.0
-	google.golang.org/genproto v0.0.0-20200417142217-fb6d0575620b // indirect
-	google.golang.org/grpc v1.28.1 // indirect
+	golang.org/x/net v0.0.0-20200425230154-ff2c4b7c35a0 // indirect
+	golang.org/x/sys v0.0.0-20200428200454-593003d681fa // indirect
+	golang.org/x/tools v0.0.0-20200428211428-0c9eba77bc32 // indirect
+	google.golang.org/api v0.22.0
+	google.golang.org/appengine v1.6.6 // indirect
+	google.golang.org/genproto v0.0.0-20200429120912-1f37eeb960b2 // indirect
+	google.golang.org/grpc v1.29.1 // indirect
 )
