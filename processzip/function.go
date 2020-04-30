@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 	"strconv"
+	"io/ioutil"
+	"sync"
 )
 
 var projectID string = os.Getenv("PROJECT_ID")
@@ -23,24 +24,17 @@ type PubSubMessage struct {
 func ProcessZip(ctx context.Context, m PubSubMessage) error {
 
 	object := string(m.Data)
-	fmt.Printf("Received file: %s\n", object)
 
-	client := client(ctx)
-
-	fmt.Printf("Downloading object %s from bucket %s\n", object, bucket)
-	zipfile := download(bucket, object, client)
-	fmt.Printf("Download completed: %s\n", object)
+	fmt.Printf("Downloading object %s from bucket %s\n", object, sourceBucket)
+	zipfile := download(sourceBucket, object)
 
 	fmt.Printf("Unzipping zipfile from %s\n", zipfile)
 	folder := extractAll(zipfile)
-	defer os.RemoveAll(folder)
 
 	fmt.Printf("Processing files from %s\n", folder)
-	processRoms(ctx context.Context, folder)
+	processRoms(ctx, folder)
 
-	if err := client.Close(); err != nil {
-		panic(fmt.Sprintf("Failed to close client: %v\n", err))
-	}
+	return nil
 }
 
 func size(size string) int64 {
@@ -53,43 +47,63 @@ func size(size string) int64 {
 
 func processRoms(ctx context.Context, folder string) {
 
+	var wg sync.WaitGroup
 	files := listFiles(folder)
 	for _, file := range files {
+
+		// Skip blank filename (current directory?)
 		if len(file) == 0 {
 			continue
 		}
 		filename := filepath.Join(folder, file)
 
+		// Is this a directory?
 		fi, err := os.Stat(filename)
 		if err != nil {
 			panic(fmt.Sprintf("Failed to stat %s: %v\n", filename, err))
 		}
-		switch mode := fi.Mode(); {
-		case mode.IsDir():
-			// do directory stuff
+		isDir := fi.Mode().IsDir()
+
+		if isDir {
+			// Some zips have subdirectories
 			fmt.Printf("%s is a directory, recursing\n", filename)
 			processRoms(ctx, filename)
-		case mode.IsRegular():
-			fmt.Printf("Fingerprinting: %s\n", filename)
-			fingerprint := fingerprint(filename)
-			fmt.Printf("Fingerprint of %s is %v\n", filename, fingerprint)
-			objectpath := objectpath(file, fingerprint)
-			fmt.Printf("Object path is %s\n", objectpath)
-			if !exists(bucket, objectpath, client) {
-				fmt.Printf("Zipping up %s\n", filename)
-				zip := zipFile(filename)
-				defer os.Remove(zip)
-				fmt.Printf("Uploading %s to %s\n", zip, objectpath)
-				upload(zip, targetBucket, objectpath, client)
-				fmt.Printf("Uploaded %s (%v)\n", filepath.Base(objectpath), fingerprint)
-			} else {
-				fmt.Printf("Object exists, moving on (%s)\n", objectpath)
-			}
+		} else {
+			wg.Add(1)
+			processRom(ctx, filename, &wg)
 		}
 	}
+	wg.Wait()
 }
 
-// Lists files in a directory
+func processRom(ctx context.Context, filename string, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	client := client(ctx)
+
+	fmt.Printf("Fingerprinting: %s\n", filename)
+	fingerprint := fingerprint(filename)
+	fmt.Printf("Fingerprint of %s is %v\n", filename, fingerprint)
+	objectpath := objectpath(filename, fingerprint)
+	fmt.Printf("Object path for %s is %s\n", filename, objectpath)
+	duplicate := exists(targetBucket, objectpath, client)
+	if duplicate {
+		fmt.Printf("Object exists, moving on (%s)\n", objectpath)
+		os.Remove(filename)
+	} else {
+		fmt.Printf("Zipping up %s\n", filename)
+		zip := zipFile(filename)
+		fmt.Printf("Uploading %s to %s\n", zip, objectpath)
+		upload(zip, targetBucket, objectpath, client)
+	}
+
+	if err := client.Close(); err != nil {
+		panic(fmt.Sprintf("Failed to close client: %v\n", err))
+	}
+
+	fmt.Printf("Done\n")
+}
+
 func listFiles(folder string) []string {
 	files, err := ioutil.ReadDir(folder)
 	if err != nil {
@@ -100,23 +114,4 @@ func listFiles(folder string) []string {
 		result = append(result, file.Name())
 	}
 	return result
-}
-
-func processRom(ctx context.Context, filename string) {
-
-	fmt.Printf("Fingerprinting: %s\n", filename)
-	fingerprint := fingerprint(filename)
-	fmt.Printf("Fingerprint of %s is %v\n", filename, fingerprint)
-	objectpath := objectpath(file, fingerprint)
-	fmt.Printf("Object path is %s\n", objectpath)
-	if !exists(bucket, objectpath, client) {
-		fmt.Printf("Zipping up %s\n", filename)
-		zip := zipFile(filename)
-		defer os.Remove(zip)
-		fmt.Printf("Uploading %s to %s\n", zip, objectpath)
-		upload(zip, targetBucket, objectpath, client)
-		fmt.Printf("Uploaded %s (%v)\n", filepath.Base(objectpath), fingerprint)
-	} else {
-		fmt.Printf("Object exists, moving on (%s)\n", objectpath)
-	}
 }
