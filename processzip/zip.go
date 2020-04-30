@@ -11,6 +11,7 @@ import (
 
 // Extracts all entries in a zip file and returns the paths of the extracted files
 func extractAll(zipfilename string) string {
+	defer os.Remove(zipfilename)
 
 	tempDir := tempDir()
 
@@ -35,7 +36,7 @@ func extract(directory string, entry *zip.File) {
 	path := filepath.Join(directory, entry.Name)
 
 	// Zip Slip check
-	if !strings.HasPrefix(path, filepath.Clean(directory)+string(os.PathSeparator)) {
+	if !strings.HasPrefix(path, filepath.Clean(directory) + string(os.PathSeparator)) {
 		panic(fmt.Sprintf("%s: Illegal file path", path))
 	}
 
@@ -67,6 +68,7 @@ func extract(directory string, entry *zip.File) {
 }
 
 func zipFile(filename string) string {
+	defer os.Remove(filename)
 
 	// Source data
 	source, err := os.Open(filename)
