@@ -11,7 +11,7 @@ gcloud config set project $project_id
 gcloud functions deploy ProcessZipSmall \
     --entry-point ProcessZip \
     --runtime go111 \
-    --memory 256MB \
+    --memory 128MB \
     --trigger-topic rom-upload-small \
     --set-env-vars PROJECT_ID=$project_id \
     --allow-unauthenticated \
@@ -21,7 +21,7 @@ gcloud functions deploy ProcessZipSmall \
 gcloud functions deploy ProcessZipMedium \
     --entry-point ProcessZip \
     --runtime go111 \
-    --memory 512MB \
+    --memory 256MB \
     --trigger-topic rom-upload-medium \
     --set-env-vars PROJECT_ID=$project_id \
     --allow-unauthenticated \
@@ -31,7 +31,7 @@ gcloud functions deploy ProcessZipMedium \
 gcloud functions deploy ProcessZipLarge \
     --entry-point ProcessZip \
     --runtime go111 \
-    --memory 1024MB \
+    --memory 512MB \
     --trigger-topic rom-upload-large \
     --set-env-vars PROJECT_ID=$project_id \
     --allow-unauthenticated \
