@@ -43,18 +43,19 @@ func exists(bucket string, objectpath string, client *storage.Client) bool {
 	for {
 		_, err := it.Next()
 		if err == iterator.Done {
-			fmt.Printf("Nothing found for prefix %s", objectpath)
+			fmt.Printf("Nothing found for prefix %s\n", objectpath)
 			return false
 		}
 		if err != nil {
 			panic(fmt.Sprintf("Error checking if bukcket object exists: %v\n", err))
 		}
-		fmt.Printf("Found something for prefix %s", objectpath)
+		fmt.Printf("Found something for prefix %s\n", objectpath)
 		return true
 	}
 }
 
 func upload(filename string, bucket string, object string, client *storage.Client) {
+	defer os.Remove(filename)
 
 	ctx := context.Background()
 	ctx, cancel := context.WithTimeout(ctx, time.Second*50)
@@ -77,13 +78,14 @@ func upload(filename string, bucket string, object string, client *storage.Clien
 // Maximum size of data to attempt to download in one go:
 const chunkSize = 10 * 1024 * 1024
 
-func download(bucket string, object string, client *storage.Client) string {
+func download(bucket string, object string) string {
 
 	ctx := context.Background()
 	ctx, cancel := context.WithTimeout(ctx, time.Second*50)
 	defer cancel()
 
 	// Get the size of the object
+	client := client(ctx)
 	objectHandle := client.Bucket(bucket).Object(object)
 	objectAttrs, err := objectHandle.Attrs(ctx)
 	if err != nil {
@@ -98,6 +100,11 @@ func download(bucket string, object string, client *storage.Client) string {
 	} else {
 		result = downloadLarge(ctx, *objectHandle, objectSize, client)
 	}
+
+	if err := client.Close(); err != nil {
+		panic(fmt.Sprintf("Failed to close client: %v\n", err))
+	}
+	
 	return result
 }
 
@@ -217,39 +224,3 @@ func assembleChunks(chunks []string) string {
 	fmt.Printf("Assembled %d bytes to %s", count, assembled)
 	return assembled
 }
-
-// func assembleChunks(chunks []string) string {
-
-// 	// Create a destination file
-// 	output := tempFile()
-// 	defer output.Close()
-// 	assembled := output.Name()
-// 	var outputSize int64
-
-// 	// Process each chunk into the destination file
-// 	for index, tempFile := range chunks {
-
-// 		// Open the chunk
-// 		input, err := os.Open(tempFile)
-// 		if err != nil {
-// 			panic(fmt.Sprintf("Failed to open chunk %d: %v\n", index, err))
-// 		}
-
-// 		// Copy it to the output file
-// 		fmt.Printf("Collecting chunk %d to %s\n", index, output.Name())
-// 		count, err := io.Copy(output, input)
-// 		if err != nil {
-// 			panic(fmt.Sprintf("Failed to copy content of chunk %d: %v\n", index, err))
-// 		} else {
-// 			outputSize += count
-// 		}
-
-// 		// Close the chunk
-// 		if err := input.Close(); err != nil {
-// 			panic(fmt.Sprintf("Failed to close chunk %d: %v\n", index, err))
-// 		}
-// 	}
-
-// 	fmt.Printf("Assembled %d bytes to %s", outputSize, assembled)
-// 	return assembled
-// }
