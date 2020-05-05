@@ -92,14 +92,16 @@ func download(bucket string, object string) string {
 		panic(fmt.Sprintf("Failed to get object attributes: %v\n", err))
 	}
 	objectSize := objectAttrs.Size
+	fmt.Printf("Object size is: %v", objectSize)
 
 	// Download in one go, or as chunks, depending on the size
 	var result string
-	if  objectSize <= chunkSize {
-		result = downloadSmall(ctx, objectHandle, client)
-	} else {
-		result = downloadLarge(ctx, *objectHandle, objectSize, client)
-	}
+	// if  objectSize <= chunkSize {
+	// 	result = downloadSmall(ctx, objectHandle, client)
+	// } else {
+	// 	result = downloadLarge(ctx, *objectHandle, objectSize, client)
+	// }
+	result = downloadSmall(ctx, objectHandle, client)
 
 	if err := client.Close(); err != nil {
 		panic(fmt.Sprintf("Failed to close client: %v\n", err))
