@@ -13,5 +13,6 @@ gcloud functions deploy PublishRom \
     --memory 128MB \
     --trigger-resource mamecloud-roms-upload \
     --trigger-event google.storage.object.finalize \
+    --set-env-vars PROJECT_ID=$project_id \
     --allow-unauthenticated \
     --region europe-west2
