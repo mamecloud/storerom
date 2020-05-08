@@ -41,7 +41,7 @@ gcloud functions deploy ProcessZipLarge \
 gcloud functions deploy ProcessZipXLarge \
     --entry-point ProcessZip \
     --runtime go111 \
-    --memory 2048MB \
+    --memory 1024MB \
     --trigger-topic rom-upload-xlarge \
     --set-env-vars PROJECT_ID=$project_id \
     --allow-unauthenticated \
