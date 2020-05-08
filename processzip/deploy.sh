@@ -14,6 +14,7 @@ gcloud functions deploy ProcessZipSmall \
     --memory 128MB \
     --trigger-topic rom-upload-small \
     --set-env-vars PROJECT_ID=$project_id \
+    --timeout 100s \
     --allow-unauthenticated \
     --region europe-west2 &
 
@@ -24,6 +25,7 @@ gcloud functions deploy ProcessZipMedium \
     --memory 256MB \
     --trigger-topic rom-upload-medium \
     --set-env-vars PROJECT_ID=$project_id \
+    --timeout 100s \
     --allow-unauthenticated \
     --region europe-west2 &
 
@@ -35,6 +37,7 @@ gcloud functions deploy ProcessZipLarge \
     --trigger-topic rom-upload-large \
     --set-env-vars PROJECT_ID=$project_id \
     --allow-unauthenticated \
+    --timeout 100s \
     --region europe-west2 &
 
 # Process x-large rom files from pubsub
@@ -44,6 +47,7 @@ gcloud functions deploy ProcessZipXLarge \
     --memory 1024MB \
     --trigger-topic rom-upload-xlarge \
     --set-env-vars PROJECT_ID=$project_id \
+    --timeout 100s \
     --allow-unauthenticated \
     --region europe-west2 &
 
