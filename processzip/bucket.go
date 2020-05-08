@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"google.golang.org/api/iterator"
 	"io"
+	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -86,7 +87,7 @@ func upload(ctx context.Context, filename string, bucket string, object string, 
 
 // Downloads content from the given bucket and object path to a temp file and returns the temp file name
 func download(ctx context.Context, bucket string, object string, client *storage.Client) string {
-	fmt.Printf("Domnloading %s from %\n", object, bucket)
+	fmt.Printf("Domnloading %s from %s\n", object, bucket)
 
 	tctx, cancel := context.WithTimeout(ctx, time.Second*50)
 	defer cancel()
@@ -99,7 +100,10 @@ func download(ctx context.Context, bucket string, object string, client *storage
 	defer input.Close()
 
 	// Output
-	output := tempFile()
+	output, err := ioutil.TempFile(filepath.Base(object), ".zip")
+	if err != nil {
+		panic(fmt.Sprintf("Error creating temp file: %v\n", err))
+	}
 	defer output.Close()
 
 	// Copy

@@ -68,8 +68,8 @@ func PublishRom(ctx context.Context, e GCSEvent) error {
 
 	if isRom {
 
-		sizeM := size(e.Size)
-		fmt.Printf("Received zip file %s (%dM)\n", object, sizeM)
+		sizeM, display := size(e.Size)
+		fmt.Printf("Received zip file %s (%s)\n", object, display)
 
 		// Choose the topic to publish to, based on the file size:
 		var topicID string
@@ -87,21 +87,29 @@ func PublishRom(ctx context.Context, e GCSEvent) error {
 		publish(bucket, object, topicID)
 
 	} else {
-
 		fmt.Printf("Not a zip file, Skipping: %s\n", object)
-
 	}
 
 	return nil
 }
 
-// Converts the string size in bytes to int64 size in megabytes
-func size(size string) int64 {
-	result, err := strconv.ParseInt(size, 10, 64)
+// Converts the string size in bytes to int64 size in megabytes, plus a display value
+func size(size string) (megabytes int64, display string) {
+	bytes, err := strconv.ParseInt(size, 10, 64)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to parse object size %s: %v\n", size, err))
 	}
-	return result / (1024 * 1024)
+
+	if bytes < 1024 {
+		display = fmt.Sprintf("%vB", bytes) 
+	} else if bytes < (1024 * 1024) {
+		display = fmt.Sprintf("%vK", bytes / 1024) 
+	} else {
+		display = fmt.Sprintf("%vM", bytes / (1024 * 1024)) 
+	}
+
+	megabytes = bytes / (1024 * 1024)
+	return megabytes, display
 }
 
 // Published an object name to the given Pubsub topic
@@ -126,5 +134,5 @@ func publish(bucket, object string, topicID string) {
 	if err != nil {
 		panic(fmt.Sprintf("Error publishing %s: %v\n", object, err))
 	}
-	fmt.Printf("Published message for %s to %s; msg ID: %v\n", object, topicID, id)
+	fmt.Printf("Published message to %s for %s. Msg ID: %v\n", topicID, object, id)
 }
