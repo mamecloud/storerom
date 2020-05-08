@@ -76,7 +76,7 @@ func PublishRom(ctx context.Context, e GCSEvent) error {
 		if sizeM < 10 {
 			// Disabled for now because we always get one or two errors.
 			topicID = topicSmall
-		} else if sizeM < 40 {
+		} else if sizeM < 50 {
 			topicID = topicMedium
 		} else if sizeM < 100 {
 			topicID = topicLarge
