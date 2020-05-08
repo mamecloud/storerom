@@ -100,7 +100,7 @@ func download(ctx context.Context, bucket string, object string, client *storage
 	defer input.Close()
 
 	// Output
-	output, err := ioutil.TempFile(filepath.Base(object), ".zip")
+	output, err := ioutil.TempFile("", filepath.Base(object) + ".*.zip")
 	if err != nil {
 		panic(fmt.Sprintf("Error creating temp file: %v\n", err))
 	}
