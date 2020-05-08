@@ -39,30 +39,3 @@ func fingerprint(destination io.Writer) (f *Fingerprint) {
 
 	return f
 }
-
-
-
-// // Fingerprint a file in the Mame way
-// func xfingerprint(source io.Reader, destination io.Writer) (Fingerprint, error) {
-
-// 	result := Fingerprint{}
-
-// 	// Prepare destination Writers
-// 	size := new(countingWriter)
-// 	crc := crc32.NewIEEE()
-// 	sha1 := sha1.New()
-// 	destinations := io.MultiWriter(size, crc, sha1, destination)
-
-// 	// Copy content
-// 	if _, err := io.Copy(destinations, source); err != nil {
-// 		return result, err
-// 	}
-
-// 	// Collect results
-// 	result.size = size.size
-// 	result.crc = hex.EncodeToString(crc.Sum(nil))
-// 	result.sha1 = hex.EncodeToString(sha1.Sum(nil))
-
-// 	return result, nil
-// }
-

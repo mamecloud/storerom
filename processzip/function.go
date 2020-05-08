@@ -45,10 +45,12 @@ func process(ctx context.Context, zipfilename string, bucket string, client *sto
 
 	// Process the entries
 	for _, entry := range zipfile.File {
+		fmt.Printf("Entry %s\n", entry.Name)
 		if !entry.FileInfo().IsDir() {
 			fmt.Printf("Extracting: %s from %s\n", entry.Name, zipfilename)
 			processEntry(ctx, entry, bucket, client)
 		}
+		fmt.Printf("Next entry...\n")
 	}
 }
 
@@ -57,6 +59,7 @@ func processEntry(ctx context.Context, sourceEntry *zip.File, bucket string, cli
 	fmt.Printf("Processing zip entry %s\n", sourceEntry.Name)
 
 	// Input
+	fmt.Println("Input...")
 	input, err := sourceEntry.Open()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to open zip entry %s: %v\n", sourceEntry.Name, err))
@@ -64,6 +67,7 @@ func processEntry(ctx context.Context, sourceEntry *zip.File, bucket string, cli
 	defer input.Close()
 
 	// Output: file/zip/entry
+	fmt.Println("Output...")
 	tempFile, err := ioutil.TempFile(sourceEntry.Name, ".zip")
 	if err != nil {
 		panic(fmt.Sprintf("Error creating temp file: %v\n", err))
@@ -79,18 +83,23 @@ func processEntry(ctx context.Context, sourceEntry *zip.File, bucket string, cli
 	fingerprint := fingerprint(entry)
 
 	// Copy
+	fmt.Println("Copy...")
 	if _, err := io.Copy(fingerprint, input); err != nil {
 		panic(fmt.Sprintf("Failed to write and fingerprint zip entry %s: %v\n", name, err))
 	}
 	fingerprint.Digest()
 
 	// Finish writing the zip file (central directory)
+	fmt.Println("Finalise zip...")
 	err = zipfile.Close()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to finalise zip file: %v\n", err))
 	}
 
 	// Upload
+	fmt.Println("Upload...")
 	objectpath := objectpath(name, fingerprint)
+	fmt.Println(objectpath)
 	upload(ctx, tempFile.Name(), bucket, objectpath, client)
+	fmt.Println("Done.")
 }
