@@ -27,13 +27,13 @@ func ProcessZip(ctx context.Context, m PubSubMessage) error {
 	client := createClient(ctx)
 
 	zipfile := download(ctx, sourceBucket, object, client)
-	processZip(ctx, zipfile, targetBucket, client)
+	processZip(ctx, zipfile, client)
 
 	return nil
 }
 
 // Processes all entries in a zip file
-func processZip(ctx context.Context, zipfilename string, bucket string, client *storage.Client) {
+func processZip(ctx context.Context, zipfilename string, client *storage.Client) {
 	defer os.Remove(zipfilename)
 
 	// Open the zip file
@@ -48,13 +48,20 @@ func processZip(ctx context.Context, zipfilename string, bucket string, client *
 		fmt.Printf("Entry %s\n", entry.Name)
 		if !entry.FileInfo().IsDir() {
 			fmt.Printf("Extracting: %s from %s\n", entry.Name, zipfilename)
-			processEntry(ctx, entry, bucket, client)
+			filename, fingerprint := processEntry(ctx, entry, client)
+
+			// Upload
+			name := filepath.Base(filename)
+			objectpath := objectpath(name, fingerprint)
+			if !exists(ctx, targetBucket, objectpath, client) {
+				upload(ctx, filename, targetBucket, objectpath, client)
+			}
 		}
 	}
 }
 
 // Process a zip entry into a new zip
-func processEntry(ctx context.Context, sourceEntry *zip.File, bucket string, client *storage.Client) {
+func processEntry(ctx context.Context, sourceEntry *zip.File, client *storage.Client) (string, *Fingerprint) {
 	fmt.Printf("Processing zip entry %s\n", sourceEntry.Name)
 
 	// Input
@@ -65,14 +72,13 @@ func processEntry(ctx context.Context, sourceEntry *zip.File, bucket string, cli
 	defer input.Close()
 
 	// Output: file/zip/entry
-	tempFile, err := ioutil.TempFile("", sourceEntry.Name + "_*")
+	name := filepath.Base(sourceEntry.Name)
+	tempFile, err := ioutil.TempFile("", name + "_*")
 	if err != nil {
 		panic(fmt.Sprintf("Error creating temp file: %v\n", err))
 	}
-	defer os.Remove(tempFile.Name())
 	defer tempFile.Close()
 	zipfile := zip.NewWriter(tempFile)
-	name := filepath.Base(sourceEntry.Name)
 	entry, err := zipfile.Create(name)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create zip entry %s: %v\n", name, err))
@@ -91,7 +97,5 @@ func processEntry(ctx context.Context, sourceEntry *zip.File, bucket string, cli
 		panic(fmt.Sprintf("Failed to finalise zip file: %v\n", err))
 	}
 
-	// Upload
-	objectpath := objectpath(name, fingerprint)
-	upload(ctx, tempFile.Name(), bucket, objectpath, client)
+	return tempFile.Name(), fingerprint
 }
