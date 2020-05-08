@@ -9,37 +9,43 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strconv"
-	"sync"
 	"time"
 )
 
 // Create a storage client
-func client(ctx context.Context) *storage.Client {
-	client, err := storage.NewClient(ctx)
+func createClient(ctx context.Context) *storage.Client {
+
+	bctx := context.Background()
+	client, err := storage.NewClient(bctx)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to create client: %v\n", err))
+		panic(fmt.Sprintf("Failed to create storage client: %v\n", err))
 	}
 	return client
 }
 
-// Computes a path for a fingerprint.
-func objectpath(file string, fingerprint Fingerprint) string {
-	name := filepath.Base(file)
-	return path.Join(name, strconv.FormatInt(fingerprint.size, 10), fingerprint.crc, fingerprint.sha1, name+".zip")
+// Close a storage client
+func closeClient(client *storage.Client) {
+	if err := client.Close(); err != nil {
+		panic(fmt.Sprintf("Failed to close storage client: %v\n", err))
+	}
 }
 
-func exists(bucket string, objectpath string, client *storage.Client) bool {
+// Computes an object path, based on a fingerprint.
+func objectpath(file string, fingerprint *Fingerprint) string {
+	name := filepath.Base(file)
+	return path.Join(name, strconv.FormatInt(fingerprint.Size, 10), fingerprint.Crc, fingerprint.Sha1, name + ".zip")
+}
 
+// Checks whether the given bucket contains the given object path
+func exists(ctx context.Context, bucket string, objectpath string, client *storage.Client) bool {
 	fmt.Printf("Testing whether %s exists in %s\n", objectpath, bucket)
 
-	ctx := context.Background()
-	ctx, cancel := context.WithTimeout(ctx, time.Second*50)
+	tctx, cancel := context.WithTimeout(ctx, time.Second*50)
 	defer cancel()
 
 	query := &storage.Query{Prefix: objectpath}
-	it := client.Bucket(bucket).Objects(ctx, query)
+	it := client.Bucket(bucket).Objects(tctx, query)
 	for {
 		_, err := it.Next()
 		if err == iterator.Done {
@@ -54,178 +60,52 @@ func exists(bucket string, objectpath string, client *storage.Client) bool {
 	}
 }
 
-func upload(filename string, bucket string, object string) {
+// Uploads file content to the given bucket and object path
+func upload(ctx context.Context, filename string, bucket string, object string, client *storage.Client) {
+	fmt.Printf("Uploading to %s in bucket %s from %s\n", object, bucket, filename)
 
-	ctx := context.Background()
-	ctx, cancel := context.WithTimeout(ctx, time.Second*50)
+	tctx, cancel := context.WithTimeout(ctx, time.Second*50)
 	defer cancel()
 
+	// Input
 	input, err := os.Open(filename)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to open input file: %v\n", err))
 	}
 	defer input.Close()
 
-	client := client(ctx)
-	output := client.Bucket(bucket).Object(object).NewWriter(ctx)
+	// Output
+	output := client.Bucket(bucket).Object(object).NewWriter(tctx)
 	defer output.Close()
 
+	// Copy
 	if _, err = io.Copy(output, input); err != nil {
-		panic(fmt.Sprintf("Failed to copy content: %v\n", err))
-	}
-
-	if err := client.Close(); err != nil {
-		panic(fmt.Sprintf("Failed to close client: %v\n", err))
+		panic(fmt.Sprintf("Failed to download object content: %v\n", err))
 	}
 }
 
-// Maximum size of data to attempt to download in one go:
-const chunkSize = 10 * 1024 * 1024
+// Downloads content from the given bucket and object path to a temp file and returns the temp file name
+func download(ctx context.Context, bucket string, object string, client *storage.Client) string {
+	fmt.Printf("Domnloading %s from %\n", object, bucket)
 
-func download(bucket string, object string) string {
-
-	ctx := context.Background()
-	ctx, cancel := context.WithTimeout(ctx, time.Second*50)
+	tctx, cancel := context.WithTimeout(ctx, time.Second*50)
 	defer cancel()
 
-	// Get the size of the object
-	client := client(ctx)
-	objectHandle := client.Bucket(bucket).Object(object)
-	objectAttrs, err := objectHandle.Attrs(ctx)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to get object attributes: %v\n", err))
-	}
-	objectSize := objectAttrs.Size
-	fmt.Printf("Object size is: %v", objectSize)
-
-	// Download in one go, or as chunks, depending on the size
-	var result string
-	// if  objectSize <= chunkSize {
-	// 	result = downloadSmall(ctx, objectHandle, client)
-	// } else {
-	// 	result = downloadLarge(ctx, *objectHandle, objectSize, client)
-	// }
-	result = downloadSmall(ctx, objectHandle, client)
-
-	if err := client.Close(); err != nil {
-		panic(fmt.Sprintf("Failed to close client: %v\n", err))
-	}
-
-	return result
-}
-
-// Single download
-func downloadSmall(ctx context.Context, objectHandle *storage.ObjectHandle, client *storage.Client) string {
-
-	input, err := objectHandle.NewReader(ctx)
+	// Input
+	input, err := client.Bucket(bucket).Object(object).NewReader(tctx)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to open input object: %v\n", err))
 	}
 	defer input.Close()
 
+	// Output
 	output := tempFile()
 	defer output.Close()
 
+	// Copy
 	if _, err = io.Copy(output, input); err != nil {
-		panic(fmt.Sprintf("Failed to copy content: %v\n", err))
+		panic(fmt.Sprintf("Failed to upload file content: %v\n", err))
 	}
 
 	return output.Name()
-}
-
-// Chunked download
-func downloadLarge(ctx context.Context, objectHandle storage.ObjectHandle, objectSize int64, client *storage.Client) string {
-
-	offset := int64(0)
-
-	// Calculate the number of chunks needed to download an object of this size
-	chunkCount := objectSize / chunkSize
-	if objectSize%chunkSize > 0 {
-		chunkCount++
-	}
-	fmt.Printf("Chunk count: object Size:%d / chunkSize:%d = %d:chunks\n", objectSize, chunkSize, chunkCount)
-	chunks := make([]string, chunkCount)
-
-	index := 0
-	var wg sync.WaitGroup
-	for {
-
-		if offset < objectSize {
-
-			// Start a chunk download
-			wg.Add(1)
-			if offset+chunkSize < objectSize {
-				go downloadChunk(ctx, objectHandle, offset, chunkSize, index, chunks, &wg)
-			} else {
-				go downloadChunk(ctx, objectHandle, offset, -1, index, chunks, &wg)
-			}
-
-			// Increment to the next chunk
-			index++
-			offset += chunkSize
-
-		} else {
-			break
-		}
-	}
-	wg.Wait()
-	runtime.GC()
-
-	return assembleChunks(chunks)
-}
-
-func downloadChunk(ctx context.Context, objectHandle storage.ObjectHandle, offset, length int64, index int, chunks []string, wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	// Open a range on the object
-	input, err := objectHandle.NewRangeReader(ctx, offset, length)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to open input object: %v\n", err))
-	}
-	defer input.Close()
-
-	// Create a temp file to receive the range
-	output := tempFile()
-	defer output.Close()
-
-	// Download the data
-	//fmt.Printf("Downloading chunk %d to %s\n", index, output.Name())
-	if _, err = io.Copy(output, input); err != nil {
-		panic(fmt.Sprintf("Failed to copy content: %v\n", err))
-	}
-
-	chunks[index] = output.Name()
-}
-
-func assembleChunks(chunks []string) string {
-
-	// Create a destination file
-	output := tempFile()
-	defer output.Close()
-	assembled := output.Name()
-
-	// Open the chunks as a MultiReader
-	readers := make([]io.Reader, 0)
-	for index, tempFile := range chunks {
-
-		// Open the chunk
-		defer os.Remove(tempFile)
-		input, err := os.Open(tempFile)
-		if err != nil {
-			panic(fmt.Sprintf("Failed to open chunk %d: %v\n", index, err))
-		}
-		defer input.Close()
-		readers = append(readers, input)
-	}
-	input := io.MultiReader(readers...)
-
-	// Copy chunks to the output file
-	count, err := io.Copy(output, input)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to collate chunks: %v\n", err))
-	}
-	runtime.GC()
-
-	fmt.Printf("Assembled %d bytes to %s", count, assembled)
-	return assembled
 }

@@ -1,18 +1,20 @@
 package processzip
 
 import (
+	"context"
 	"archive/zip"
+	"cloud.google.com/go/storage"
 	"fmt"
 	"os"
+	"io"
 	"path/filepath"
 )
 
 // Processes all entries in a zip file
-func process(zipfilename string, bucket string) {
+func process(ctx context.Context, zipfilename string, bucket string, client *storage.Client) {
 	defer os.Remove(zipfilename)
 
 	// Open the zip file
-	fmt.Printf("Unzipping %s\n", zipfilename)
 	zipfile, err := zip.OpenReader(zipfilename)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to open input zipfile: %v\n", err))
@@ -23,46 +25,49 @@ func process(zipfilename string, bucket string) {
 	for _, entry := range zipfile.File {
 		if !entry.FileInfo().IsDir() {
 			fmt.Printf("Extracting: %s from %s\n", entry.Name, zipfilename)
-			processEntry(entry, bucket)
+			processEntry(ctx, entry, bucket, client)
 		}
 	}
 }
 
 // Process a zip entry into a new zip
-func processEntry(sourceEntry *zip.File, bucket string) {
+func processEntry(ctx context.Context, sourceEntry *zip.File, bucket string, client *storage.Client) {
+	fmt.Printf("Processing zip entry %s\n", sourceEntry.Name)
 
-	// Source data
-	source, err := sourceEntry.Open()
+	// Input
+	input, err := sourceEntry.Open()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to open zip entry %s: %v\n", sourceEntry.Name, err))
 	}
-	defer source.Close()
+	defer input.Close()
 
-	// Destination zip/entry
+	// Output: file/zip/entry
 	tempFile := tempFile()
 	defer os.Remove(tempFile.Name())
 	defer tempFile.Close()
 	zipfile := zip.NewWriter(tempFile)
-	entryName := filepath.Base(sourceEntry.Name)
-	destination, err := zipfile.Create(entryName)
+	name := filepath.Base(sourceEntry.Name)
+	entry, err := zipfile.Create(name)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to create zip entry %s: %v\n", entryName, err))
+		panic(fmt.Sprintf("Failed to create zip entry %s: %v\n", name, err))
 	}
+	fingerprint := fingerprint(entry)
 
-	// Write the data
-	fingerprint, err := fingerprint(source, destination)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to write and fingerprint zip entry %s: %v\n", entryName, err))
+	// Copy
+	if _, err := io.Copy(fingerprint, input); err != nil {
+		panic(fmt.Sprintf("Failed to write and fingerprint zip entry %s: %v\n", name, err))
 	}
+	fingerprint.Digest()
 
-	// Make sure to check the error on closing the zip.
+	// Finish writing the zip file (central directory)
 	err = zipfile.Close()
 	if err != nil {
-		panic(fmt.Sprintf("Failed to close zip file: %v\n", err))
+		panic(fmt.Sprintf("Failed to finalise zip file: %v\n", err))
 	}
 
-	objectpath := objectpath(entryName, fingerprint)
-	upload(tempFile.Name(), bucket, objectpath)
+	// Upload
+	objectpath := objectpath(name, fingerprint)
+	upload(ctx, tempFile.Name(), bucket, objectpath, client)
 }
 
 // // Extracts all entries in a zip file and returns the paths of the extracted files
