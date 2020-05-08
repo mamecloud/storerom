@@ -3,6 +3,7 @@ package sortbysize
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -10,7 +11,7 @@ import (
 	"cloud.google.com/go/pubsub"
 )
 
-var bucket string = "mamecloud-roms"
+var projectID string = os.Getenv("PROJECT_ID")
 
 // GCSEvent is the payload of a GCS event.
 type GCSEvent struct {
@@ -62,7 +63,6 @@ type PubSubMessage struct {
 // This enables functions with different memory allocationt to handle different file sizes. 
 func PublishRom(ctx context.Context, e GCSEvent) error {
 
-	bucket := e.Bucket
 	object := e.Name
 	isRom := strings.ToLower(filepath.Ext(object)) == ".zip"
 
@@ -84,10 +84,10 @@ func PublishRom(ctx context.Context, e GCSEvent) error {
 			topicID = topicXLarge
 		}
 
-		publish(bucket, object, topicID)
+		publish(object, topicID)
 
 	} else {
-		fmt.Printf("Not a zip file, Skipping: %s\n", object)
+		fmt.Printf("%s is not a zip file, skipping.\n", object)
 	}
 
 	return nil
@@ -113,11 +113,11 @@ func size(size string) (megabytes int64, display string) {
 }
 
 // Published an object name to the given Pubsub topic
-func publish(bucket, object string, topicID string) {
+func publish(object string, topicID string) {
 
 	// Pubsub client
 	ctx := context.Background()
-	client, err := pubsub.NewClient(ctx, "mamecloud")
+	client, err := pubsub.NewClient(ctx, projectID)
 	if err != nil {
 		panic(fmt.Sprintf("Error creating pubsub client: %v\n", err))
 	}
