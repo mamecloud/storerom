@@ -9,10 +9,10 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"sync"
 	"time"
-	"runtime"
 )
 
 // Create a storage client
@@ -54,8 +54,7 @@ func exists(bucket string, objectpath string, client *storage.Client) bool {
 	}
 }
 
-func upload(filename string, bucket string, object string, client *storage.Client) {
-	defer os.Remove(filename)
+func upload(filename string, bucket string, object string) {
 
 	ctx := context.Background()
 	ctx, cancel := context.WithTimeout(ctx, time.Second*50)
@@ -67,11 +66,16 @@ func upload(filename string, bucket string, object string, client *storage.Clien
 	}
 	defer input.Close()
 
+	client := client(ctx)
 	output := client.Bucket(bucket).Object(object).NewWriter(ctx)
 	defer output.Close()
 
 	if _, err = io.Copy(output, input); err != nil {
 		panic(fmt.Sprintf("Failed to copy content: %v\n", err))
+	}
+
+	if err := client.Close(); err != nil {
+		panic(fmt.Sprintf("Failed to close client: %v\n", err))
 	}
 }
 
@@ -106,7 +110,7 @@ func download(bucket string, object string) string {
 	if err := client.Close(); err != nil {
 		panic(fmt.Sprintf("Failed to close client: %v\n", err))
 	}
-	
+
 	return result
 }
 
@@ -136,7 +140,7 @@ func downloadLarge(ctx context.Context, objectHandle storage.ObjectHandle, objec
 
 	// Calculate the number of chunks needed to download an object of this size
 	chunkCount := objectSize / chunkSize
-	if objectSize % chunkSize > 0 {
+	if objectSize%chunkSize > 0 {
 		chunkCount++
 	}
 	fmt.Printf("Chunk count: object Size:%d / chunkSize:%d = %d:chunks\n", objectSize, chunkSize, chunkCount)
@@ -150,7 +154,7 @@ func downloadLarge(ctx context.Context, objectHandle storage.ObjectHandle, objec
 
 			// Start a chunk download
 			wg.Add(1)
-			if offset + chunkSize < objectSize {
+			if offset+chunkSize < objectSize {
 				go downloadChunk(ctx, objectHandle, offset, chunkSize, index, chunks, &wg)
 			} else {
 				go downloadChunk(ctx, objectHandle, offset, -1, index, chunks, &wg)
@@ -169,7 +173,6 @@ func downloadLarge(ctx context.Context, objectHandle storage.ObjectHandle, objec
 
 	return assembleChunks(chunks)
 }
-
 
 func downloadChunk(ctx context.Context, objectHandle storage.ObjectHandle, offset, length int64, index int, chunks []string, wg *sync.WaitGroup) {
 	defer wg.Done()

@@ -3,10 +3,8 @@ package processzip
 import (
 	"crypto/sha1"
 	"encoding/hex"
-	"fmt"
 	"hash/crc32"
 	"io"
-	"os"
 )
 
 type Fingerprint struct {
@@ -15,34 +13,37 @@ type Fingerprint struct {
 	sha1 string
 }
 
+type countingWriter struct {
+	size int64
+}
+
+func (w *countingWriter) Write(p []byte) (n int, err error) {
+	written := len(p)
+	w.size += int64(written)
+	return written, nil
+}
+
 // Fingerprint a file in the Mame way
-func fingerprint(file string) Fingerprint {
+func fingerprint(source io.Reader, destination io.Writer) (Fingerprint, error) {
 
 	result := Fingerprint{}
 
-	// Open source file
-	source, err := os.Open(file)
-	if err != nil {
-		panic(fmt.Sprintf("Error opening %s for fingerprint: %v\n", file, err))
-	}
-	defer source.Close()
-
-	// Get the file size
-	info, err := source.Stat()
-	if err != nil {
-		panic(fmt.Sprintf("Error statting file for fingerprint: %v\n", err))
-	}
-	result.size = info.Size()
-
-	// Calculate hashes
+	// Prepare destination Writers
+	size := new(countingWriter)
 	crc := crc32.NewIEEE()
 	sha1 := sha1.New()
-	destination := io.MultiWriter(crc, sha1)
-	if _, err := io.Copy(destination, source); err != nil {
-		panic(fmt.Sprintf("Error hashing file for CRC32/SHA1: %v\n", err))
+	destinations := io.MultiWriter(size, crc, sha1, destination)
+
+	// Copy content
+	if _, err := io.Copy(destinations, source); err != nil {
+		return result, err
 	}
+
+	// Collect results
+	result.size = size.size
 	result.crc = hex.EncodeToString(crc.Sum(nil))
 	result.sha1 = hex.EncodeToString(sha1.Sum(nil))
 
-	return result
+	return result, nil
 }
+
