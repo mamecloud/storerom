@@ -64,6 +64,7 @@ func exists(ctx context.Context, bucket string, objectpath string, client *stora
 // Uploads file content to the given bucket and object path
 func upload(ctx context.Context, filename string, bucket string, object string, client *storage.Client) {
 	fmt.Printf("Uploading to %s in bucket %s from %s\n", object, bucket, filename)
+	defer os.Remove(filename)
 
 	tctx, cancel := context.WithTimeout(ctx, time.Second*50)
 	defer cancel()
@@ -100,7 +101,7 @@ func download(ctx context.Context, bucket string, object string, client *storage
 	defer input.Close()
 
 	// Output
-	output, err := ioutil.TempFile("", filepath.Base(object) + ".*.zip")
+	output, err := ioutil.TempFile("", filepath.Base(object) + "_*")
 	if err != nil {
 		panic(fmt.Sprintf("Error creating temp file: %v\n", err))
 	}
