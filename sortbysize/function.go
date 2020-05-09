@@ -73,9 +73,9 @@ func PublishRom(ctx context.Context, e GCSEvent) error {
 
 		// Choose the topic to publish to, based on the file size:
 		var topicID string
-		if sizeM < 10 {
+		if sizeM < 5 {
 			topicID = topicSmall
-		} else if sizeM < 40 {
+		} else if sizeM < 50 {
 			topicID = topicMedium
 		} else if sizeM < 100 {
 			topicID = topicLarge
