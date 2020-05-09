@@ -101,6 +101,8 @@ func processEntry(ctx context.Context, sourceEntry *zip.File, client *storage.Cl
 	}
 }
 
+// Thanks to: https://yourbasic.org/golang/measure-execution-time/
+
 func track(msg string) (string, time.Time) {
 	return msg, time.Now()
 }
