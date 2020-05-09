@@ -2,10 +2,10 @@ package processzip
 
 import (
 	"archive/zip"
+	"bufio"
 	"cloud.google.com/go/storage"
 	"context"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -47,70 +47,95 @@ func processZip(ctx context.Context, zipfilename string, client *storage.Client)
 
 	// Process the entries
 	for _, entry := range zipfile.File {
-		fmt.Printf("Entry %s\n", entry.Name)
 		if !entry.FileInfo().IsDir() {
-			fmt.Printf("Extracting: %s from %s\n", entry.Name, zipfilename)
-			processEntry(ctx, entry, client)
+			objectpath, exists := existsEntry(ctx, entry, client)
+			if !exists {
+				uploadEntry(ctx, entry, objectpath, client)
+			}
 		}
 	}
 }
 
-// Process a zip entry into a new zip
-func processEntry(ctx context.Context, sourceEntry *zip.File, client *storage.Client) {
-	defer duration(track(fmt.Sprintf("*processEntry %s", filepath.Base(sourceEntry.Name))))
-	fmt.Printf("Processing zip entry %s\n", sourceEntry.Name)
+// Test if an entry exists
+// NB in the majority of cases an entry will already exist, so it makes sense not to extract the entry
+// and accept duplicate work in those cases where an entry doesn't already exist.
+func existsEntry(ctx context.Context, sourceEntry *zip.File, client *storage.Client) (string, bool) {
+	name := filepath.Base(sourceEntry.Name)
+	defer duration(track(fmt.Sprintf("*existsEntry %s", name)))
+	fmt.Printf("Checking if zip entry %s exists\n", sourceEntry.Name)
 
 	// Input
-	msg, time := track(fmt.Sprintf("*processEntry-input %s", filepath.Base(sourceEntry.Name)))
-	input, err := sourceEntry.Open()
+	inputEntry, err := sourceEntry.Open()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to open zip entry %s: %v\n", sourceEntry.Name, err))
 	}
-	defer input.Close()
+	defer inputEntry.Close()
+	inputBuffer := bufio.NewReader(inputEntry)
+
+	// Output
+	outputFingerprint := FingerprintWriter()
+
+	// Copy
+	msg, time := track(fmt.Sprintf("*existsEntry-copy %s", name))
+	if _, err := inputBuffer.WriteTo(outputFingerprint); err != nil {
+		panic(fmt.Sprintf("Failed to write and fingerprint zip entry %s: %v\n", name, err))
+	}
+	fmt.Printf("%s: %v bytes\n", name, outputFingerprint.Size)
 	duration(msg, time)
 
-	// Output: file/zip/entry
-	msg, time = track(fmt.Sprintf("*processEntry-output %s", filepath.Base(sourceEntry.Name)))
+	// Result
+	outputFingerprint.Digest()
+	objectpath := objectpath(name, outputFingerprint)
+	exists := exists(ctx, targetBucket, objectpath, client)
+	return objectpath, exists
+}
+
+// Process a zip entry into a new zip
+func uploadEntry(ctx context.Context, sourceEntry *zip.File, objectpath string, client *storage.Client) {
 	name := filepath.Base(sourceEntry.Name)
+	defer duration(track(fmt.Sprintf("*uploadEntry %s", name)))
+	fmt.Printf("Uploading zip entry %s\n", sourceEntry.Name)
+
+	// Input
+	inputEntry, err := sourceEntry.Open()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to open zip entry %s: %v\n", sourceEntry.Name, err))
+	}
+	defer inputEntry.Close()
+	inputBuffer := bufio.NewReader(inputEntry)
+
+	// Output: file/zip/entry
 	tempFile, err := ioutil.TempFile("", name+"_*")
 	if err != nil {
 		panic(fmt.Sprintf("Error creating temp file: %v\n", err))
 	}
 	defer os.Remove(tempFile.Name())
 	defer tempFile.Close()
-	zipfile := zip.NewWriter(tempFile)
-	entry, err := zipfile.Create(name)
+	outputZipfile := zip.NewWriter(tempFile)
+	outputEntry, err := outputZipfile.Create(name)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create zip entry %s: %v\n", name, err))
 	}
-	fingerprint := FingerprintWriter(entry)
-	duration(msg, time)
+	outputBuffer := bufio.NewWriter(outputEntry)
 
 	// Copy
-	msg, time = track(fmt.Sprintf("*processEntry-copy %s", filepath.Base(sourceEntry.Name)))
-	if _, err := io.Copy(fingerprint, input); err != nil {
+	msg, time := track(fmt.Sprintf("*uploadEntry-copy %s", name))
+	if _, err := inputBuffer.WriteTo(outputBuffer); err != nil {
 		panic(fmt.Sprintf("Failed to write and fingerprint zip entry %s: %v\n", name, err))
 	}
-	duration(msg, time)
-	msg, time = track(fmt.Sprintf("*processEntry-digest %s", filepath.Base(sourceEntry.Name)))
-	fingerprint.Digest()
+	if err := outputBuffer.Flush(); err != nil {
+		panic(fmt.Sprintf("Failed to flush output buffer for zip entry %s: %v\n", name, err))
+	}
 	duration(msg, time)
 
 	// Finish writing the zip file (central directory)
-	msg, time = track(fmt.Sprintf("*processEntry-finishzip %s", filepath.Base(sourceEntry.Name)))
-	err = zipfile.Close()
+	err = outputZipfile.Close()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to finalise zip file: %v\n", err))
 	}
-	duration(msg, time)
 
 	// Upload
-	msg, time = track(fmt.Sprintf("*processEntry-upload %s", filepath.Base(sourceEntry.Name)))
-	objectpath := objectpath(name, fingerprint)
-	if !exists(ctx, targetBucket, objectpath, client) {
-		upload(ctx, tempFile.Name(), targetBucket, objectpath, client)
-	}
-	duration(msg, time)
+	upload(ctx, tempFile.Name(), targetBucket, objectpath, client)
 }
 
 // Thanks to: https://yourbasic.org/golang/measure-execution-time/
