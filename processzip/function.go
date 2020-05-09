@@ -48,20 +48,13 @@ func processZip(ctx context.Context, zipfilename string, client *storage.Client)
 		fmt.Printf("Entry %s\n", entry.Name)
 		if !entry.FileInfo().IsDir() {
 			fmt.Printf("Extracting: %s from %s\n", entry.Name, zipfilename)
-			filename, fingerprint := processEntry(ctx, entry, client)
-
-			// Upload
-			name := filepath.Base(filename)
-			objectpath := objectpath(name, fingerprint)
-			if !exists(ctx, targetBucket, objectpath, client) {
-				upload(ctx, filename, targetBucket, objectpath, client)
-			}
+			processEntry(ctx, entry, client)
 		}
 	}
 }
 
 // Process a zip entry into a new zip
-func processEntry(ctx context.Context, sourceEntry *zip.File, client *storage.Client) (string, *Fingerprint) {
+func processEntry(ctx context.Context, sourceEntry *zip.File, client *storage.Client) {
 	fmt.Printf("Processing zip entry %s\n", sourceEntry.Name)
 
 	// Input
@@ -77,6 +70,7 @@ func processEntry(ctx context.Context, sourceEntry *zip.File, client *storage.Cl
 	if err != nil {
 		panic(fmt.Sprintf("Error creating temp file: %v\n", err))
 	}
+	defer os.Remove(tempFile.Name())
 	defer tempFile.Close()
 	zipfile := zip.NewWriter(tempFile)
 	entry, err := zipfile.Create(name)
@@ -97,5 +91,9 @@ func processEntry(ctx context.Context, sourceEntry *zip.File, client *storage.Cl
 		panic(fmt.Sprintf("Failed to finalise zip file: %v\n", err))
 	}
 
-	return tempFile.Name(), fingerprint
+	// Upload
+	objectpath := objectpath(name, fingerprint)
+	if !exists(ctx, targetBucket, objectpath, client) {
+		upload(ctx, tempFile.Name(), targetBucket, objectpath, client)
+	}
 }

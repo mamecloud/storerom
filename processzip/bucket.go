@@ -14,6 +14,8 @@ import (
 	"time"
 )
 
+const timeout = 100
+
 // Create a storage client
 func createClient(ctx context.Context) *storage.Client {
 
@@ -42,7 +44,7 @@ func objectpath(file string, fingerprint *Fingerprint) string {
 func exists(ctx context.Context, bucket string, objectpath string, client *storage.Client) bool {
 	fmt.Printf("Testing whether %s exists in %s\n", objectpath, bucket)
 
-	tctx, cancel := context.WithTimeout(ctx, time.Second*50)
+	tctx, cancel := context.WithTimeout(ctx, time.Second * timeout)
 	defer cancel()
 
 	query := &storage.Query{Prefix: objectpath}
@@ -64,9 +66,8 @@ func exists(ctx context.Context, bucket string, objectpath string, client *stora
 // Uploads file content to the given bucket and object path
 func upload(ctx context.Context, filename string, bucket string, object string, client *storage.Client) {
 	fmt.Printf("Uploading to %s in bucket %s from %s\n", object, bucket, filename)
-	defer os.Remove(filename)
 
-	tctx, cancel := context.WithTimeout(ctx, time.Second*50)
+	tctx, cancel := context.WithTimeout(ctx, time.Second * timeout)
 	defer cancel()
 
 	// Input
@@ -90,7 +91,7 @@ func upload(ctx context.Context, filename string, bucket string, object string, 
 func download(ctx context.Context, bucket string, object string, client *storage.Client) string {
 	fmt.Printf("Domnloading %s from %s\n", object, bucket)
 
-	tctx, cancel := context.WithTimeout(ctx, time.Second*50)
+	tctx, cancel := context.WithTimeout(ctx, time.Second * timeout)
 	defer cancel()
 
 	// Input
