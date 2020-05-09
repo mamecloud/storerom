@@ -31,14 +31,14 @@ func (f *Fingerprint) Write(p []byte) (int, error) {
 }
 
 // FingerprintWriter wraps an io.Writer so that size, crc and sha1 can be computed after writing (using the Digest() function).
-func FingerprintWriter(destination io.Writer) (f *Fingerprint) {
+func FingerprintWriter() (f *Fingerprint) {
 
 	f = new(Fingerprint)
 
 	// Prepare destination Writers
 	f.crc = crc32.NewIEEE()
 	f.sha1 = sha1.New()
-	f.writer = io.MultiWriter(f.crc, f.sha1, destination)
+	f.writer = io.MultiWriter(f.crc, f.sha1)
 
 	return f
 }
