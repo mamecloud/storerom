@@ -5,13 +5,13 @@ import (
 	"context"
 	"fmt"
 	"google.golang.org/api/iterator"
-	"io"
 	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
 	"strconv"
 	"time"
+	"bufio"
 )
 
 const timeout = 100
@@ -79,14 +79,19 @@ func upload(ctx context.Context, filename string, bucket string, object string, 
 		panic(fmt.Sprintf("Failed to open input file: %v\n", err))
 	}
 	defer input.Close()
+	inputBuffer := bufio.NewReader(input)
 
 	// Output
 	output := client.Bucket(bucket).Object(object).NewWriter(tctx)
 	defer output.Close()
+	outputBuffer := bufio.NewWriter(output)
 
 	// Copy
-	if _, err = io.Copy(output, input); err != nil {
+	if _, err := inputBuffer.WriteTo(outputBuffer); err != nil {
 		panic(fmt.Sprintf("Failed to download object content: %v\n", err))
+	}
+	if err := outputBuffer.Flush(); err != nil {
+		panic(fmt.Sprintf("Failed to flush output buffer for upload of %s: %v\n", object, err))
 	}
 }
 
@@ -104,6 +109,7 @@ func download(ctx context.Context, bucket string, object string, client *storage
 		panic(fmt.Sprintf("Failed to open input object: %v\n", err))
 	}
 	defer input.Close()
+	inputBuffer := bufio.NewReader(input)
 
 	// Output
 	output, err := ioutil.TempFile("", filepath.Base(object)+"_*")
@@ -111,10 +117,14 @@ func download(ctx context.Context, bucket string, object string, client *storage
 		panic(fmt.Sprintf("Error creating temp file: %v\n", err))
 	}
 	defer output.Close()
+	outputBuffer := bufio.NewWriter(output)
 
 	// Copy
-	if _, err = io.Copy(output, input); err != nil {
+	if _, err := inputBuffer.WriteTo(outputBuffer); err != nil {
 		panic(fmt.Sprintf("Failed to upload file content: %v\n", err))
+	}
+	if err := outputBuffer.Flush(); err != nil {
+		panic(fmt.Sprintf("Failed to flush output buffer for download of %s: %v\n", object, err))
 	}
 
 	return output.Name()
