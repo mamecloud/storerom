@@ -1,6 +1,7 @@
 package processzip
 
 import (
+	"bufio"
 	"cloud.google.com/go/storage"
 	"context"
 	"fmt"
@@ -11,7 +12,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"time"
-	"bufio"
 )
 
 const timeout = 100
