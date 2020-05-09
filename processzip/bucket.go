@@ -18,7 +18,7 @@ const timeout = 100
 
 // Create a storage client
 func createClient(ctx context.Context) *storage.Client {
-	defer duration(track("client"))
+	defer duration(track("*client"))
 
 	bctx := context.Background()
 	client, err := storage.NewClient(bctx)
@@ -43,7 +43,7 @@ func objectpath(file string, fingerprint *Fingerprint) string {
 
 // Checks whether the given bucket contains the given object path
 func exists(ctx context.Context, bucket string, objectpath string, client *storage.Client) bool {
-	defer duration(track(fmt.Sprintf("exists %s", filepath.Base(objectpath))))
+	defer duration(track(fmt.Sprintf("*exists %s", filepath.Base(objectpath))))
 	fmt.Printf("Testing whether %s exists in %s\n", objectpath, bucket)
 
 	tctx, cancel := context.WithTimeout(ctx, time.Second*timeout)
@@ -67,7 +67,7 @@ func exists(ctx context.Context, bucket string, objectpath string, client *stora
 
 // Uploads file content to the given bucket and object path
 func upload(ctx context.Context, filename string, bucket string, object string, client *storage.Client) {
-	defer duration(track(fmt.Sprintf("upload %s", filepath.Base(object))))
+	defer duration(track(fmt.Sprintf("*upload %s", filepath.Base(object))))
 	fmt.Printf("Uploading to %s in bucket %s from %s\n", object, bucket, filename)
 
 	tctx, cancel := context.WithTimeout(ctx, time.Second*timeout)
@@ -92,7 +92,7 @@ func upload(ctx context.Context, filename string, bucket string, object string, 
 
 // Downloads content from the given bucket and object path to a temp file and returns the temp file name
 func download(ctx context.Context, bucket string, object string, client *storage.Client) string {
-	defer duration(track(fmt.Sprintf("download %s", filepath.Base(object))))
+	defer duration(track(fmt.Sprintf("*download %s", filepath.Base(object))))
 	fmt.Printf("Domnloading %s from %s\n", object, bucket)
 
 	tctx, cancel := context.WithTimeout(ctx, time.Second*timeout)

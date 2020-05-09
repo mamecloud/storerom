@@ -35,7 +35,7 @@ func ProcessZip(ctx context.Context, m PubSubMessage) error {
 
 // Processes all entries in a zip file
 func processZip(ctx context.Context, zipfilename string, client *storage.Client) {
-	defer duration(track(fmt.Sprintf("processZip %s", filepath.Base(zipfilename))))
+	defer duration(track(fmt.Sprintf("*processZip %s", filepath.Base(zipfilename))))
 	defer os.Remove(zipfilename)
 
 	// Open the zip file
@@ -57,17 +57,20 @@ func processZip(ctx context.Context, zipfilename string, client *storage.Client)
 
 // Process a zip entry into a new zip
 func processEntry(ctx context.Context, sourceEntry *zip.File, client *storage.Client) {
-	defer duration(track(fmt.Sprintf("processZip %s", filepath.Base(sourceEntry.Name))))
+	defer duration(track(fmt.Sprintf("*processEntry %s", filepath.Base(sourceEntry.Name))))
 	fmt.Printf("Processing zip entry %s\n", sourceEntry.Name)
 
 	// Input
+	msg, time := track(fmt.Sprintf("*processEntry-input %s", filepath.Base(sourceEntry.Name)))
 	input, err := sourceEntry.Open()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to open zip entry %s: %v\n", sourceEntry.Name, err))
 	}
 	defer input.Close()
+	duration(msg, time)
 
 	// Output: file/zip/entry
+	msg, time = track(fmt.Sprintf("*processEntry-output %s", filepath.Base(sourceEntry.Name)))
 	name := filepath.Base(sourceEntry.Name)
 	tempFile, err := ioutil.TempFile("", name+"_*")
 	if err != nil {
@@ -81,24 +84,33 @@ func processEntry(ctx context.Context, sourceEntry *zip.File, client *storage.Cl
 		panic(fmt.Sprintf("Failed to create zip entry %s: %v\n", name, err))
 	}
 	fingerprint := FingerprintWriter(entry)
+	duration(msg, time)
 
 	// Copy
+	msg, time = track(fmt.Sprintf("*processEntry-copy %s", filepath.Base(sourceEntry.Name)))
 	if _, err := io.Copy(fingerprint, input); err != nil {
 		panic(fmt.Sprintf("Failed to write and fingerprint zip entry %s: %v\n", name, err))
 	}
+	duration(msg, time)
+	msg, time = track(fmt.Sprintf("*processEntry-digest %s", filepath.Base(sourceEntry.Name)))
 	fingerprint.Digest()
+	duration(msg, time)
 
 	// Finish writing the zip file (central directory)
+	msg, time = track(fmt.Sprintf("*processEntry-finishzip %s", filepath.Base(sourceEntry.Name)))
 	err = zipfile.Close()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to finalise zip file: %v\n", err))
 	}
+	duration(msg, time)
 
 	// Upload
+	msg, time = track(fmt.Sprintf("*processEntry-upload %s", filepath.Base(sourceEntry.Name)))
 	objectpath := objectpath(name, fingerprint)
 	if !exists(ctx, targetBucket, objectpath, client) {
 		upload(ctx, tempFile.Name(), targetBucket, objectpath, client)
 	}
+	duration(msg, time)
 }
 
 // Thanks to: https://yourbasic.org/golang/measure-execution-time/
