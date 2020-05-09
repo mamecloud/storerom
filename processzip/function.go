@@ -1,14 +1,15 @@
 package processzip
 
 import (
-	"context"
 	"archive/zip"
 	"cloud.google.com/go/storage"
+	"context"
 	"fmt"
-	"os"
 	"io"
 	"io/ioutil"
+	"os"
 	"path/filepath"
+	"time"
 )
 
 var projectID string = os.Getenv("PROJECT_ID")
@@ -34,6 +35,7 @@ func ProcessZip(ctx context.Context, m PubSubMessage) error {
 
 // Processes all entries in a zip file
 func processZip(ctx context.Context, zipfilename string, client *storage.Client) {
+	defer duration(track(fmt.Sprintf("processZip %s", filepath.Base(zipfilename))))
 	defer os.Remove(zipfilename)
 
 	// Open the zip file
@@ -55,6 +57,7 @@ func processZip(ctx context.Context, zipfilename string, client *storage.Client)
 
 // Process a zip entry into a new zip
 func processEntry(ctx context.Context, sourceEntry *zip.File, client *storage.Client) {
+	defer duration(track(fmt.Sprintf("processZip %s", filepath.Base(sourceEntry.Name))))
 	fmt.Printf("Processing zip entry %s\n", sourceEntry.Name)
 
 	// Input
@@ -66,7 +69,7 @@ func processEntry(ctx context.Context, sourceEntry *zip.File, client *storage.Cl
 
 	// Output: file/zip/entry
 	name := filepath.Base(sourceEntry.Name)
-	tempFile, err := ioutil.TempFile("", name + "_*")
+	tempFile, err := ioutil.TempFile("", name+"_*")
 	if err != nil {
 		panic(fmt.Sprintf("Error creating temp file: %v\n", err))
 	}
@@ -96,4 +99,12 @@ func processEntry(ctx context.Context, sourceEntry *zip.File, client *storage.Cl
 	if !exists(ctx, targetBucket, objectpath, client) {
 		upload(ctx, tempFile.Name(), targetBucket, objectpath, client)
 	}
+}
+
+func track(msg string) (string, time.Time) {
+	return msg, time.Now()
+}
+
+func duration(msg string, start time.Time) {
+	fmt.Printf("%v: %v\n", msg, time.Since(start))
 }

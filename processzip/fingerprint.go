@@ -3,8 +3,8 @@ package processzip
 import (
 	"crypto/sha1"
 	"encoding/hex"
-	"hash/crc32"
 	"hash"
+	"hash/crc32"
 	"io"
 )
 
@@ -15,8 +15,8 @@ type Fingerprint struct {
 	Sha1 string
 
 	writer io.Writer
-	sha1 hash.Hash
-	crc hash.Hash32
+	sha1   hash.Hash
+	crc    hash.Hash32
 }
 
 // Digest calculates the crc and sha1 values and stores them in the struct
